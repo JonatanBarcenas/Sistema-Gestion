@@ -96,3 +96,8 @@ Route::get('kanban/projects/{project}/tasks', [KanbanController::class, 'getProj
 Route::get('kanban/tasks/{task}', [KanbanController::class, 'getTaskDetails'])->name('kanban.tasks.details');
 Route::post('kanban/tasks/{task}/comments', [KanbanController::class, 'addComment'])->name('kanban.tasks.comments.store');
 Route::delete('kanban/tasks/{task}/comments/{comment}', [KanbanController::class, 'deleteComment'])->name('kanban.tasks.comments.destroy');
+
+Route::post('session/extend', function() {
+    session()->put('last_activity', time());
+    return response()->json(['success' => true]);
+})->name('session.extend')->middleware('auth');

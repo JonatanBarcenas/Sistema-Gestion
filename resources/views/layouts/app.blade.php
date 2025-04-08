@@ -142,5 +142,97 @@
     </div>
 
     @stack('scripts')
+    
+    <!-- Session Timeout Modal -->
+    <div id="sessionTimeoutModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full" style="z-index: 100;">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Sesión a punto de expirar</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">
+                        Tu sesión expirará en <span id="countdown">60</span> segundos.
+                        ¿Deseas mantener la sesión activa?
+                    </p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="extendSession" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        Mantener sesión
+                    </button>
+                    <button id="logoutSession" class="mt-2 px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Cerrar sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let timeout;
+            let warningTimeout;
+            const warningTime = 60; // 60 segundos antes de expirar
+            const sessionLifetime = {{ config('session.lifetime') * 60 }}; // Tiempo total de la sesión en segundos
+
+            function resetTimeout() {
+                clearTimeout(timeout);
+                clearTimeout(warningTimeout);
+                
+                // Establecer el timeout principal
+                timeout = setTimeout(function() {
+                    window.location.href = "{{ route('logout') }}";
+                }, sessionLifetime * 1000);
+
+                // Establecer el timeout de advertencia
+                warningTimeout = setTimeout(function() {
+                    showWarning();
+                }, (sessionLifetime - warningTime) * 1000);
+            }
+
+            function showWarning() {
+                const modal = document.getElementById('sessionTimeoutModal');
+                const countdown = document.getElementById('countdown');
+                let seconds = warningTime;
+
+                modal.classList.remove('hidden');
+
+                const countdownInterval = setInterval(function() {
+                    seconds--;
+                    countdown.textContent = seconds;
+
+                    if (seconds <= 0) {
+                        clearInterval(countdownInterval);
+                        modal.classList.add('hidden');
+                        window.location.href = "{{ route('logout') }}";
+                    }
+                }, 1000);
+            }
+
+            // Eventos para mantener la sesión activa
+            document.addEventListener('mousemove', resetTimeout);
+            document.addEventListener('keypress', resetTimeout);
+            document.addEventListener('click', resetTimeout);
+
+            // Botones del modal
+            document.getElementById('extendSession').addEventListener('click', function() {
+                fetch("{{ route('session.extend') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    }
+                }).then(function() {
+                    document.getElementById('sessionTimeoutModal').classList.add('hidden');
+                    resetTimeout();
+                });
+            });
+
+            document.getElementById('logoutSession').addEventListener('click', function() {
+                window.location.href = "{{ route('logout') }}";
+            });
+
+            // Iniciar el timeout
+            resetTimeout();
+        });
+    </script>
 </body>
 </html>
