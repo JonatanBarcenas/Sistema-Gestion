@@ -83,24 +83,29 @@ class OrderController extends Controller
             $order = Order::create([
                 'order_number' => $orderNumber,
                 'customer_id' => $validated['customer_id'],
+                'order_date' => now(),
                 'delivery_date' => $validated['delivery_date'],
                 'status' => $validated['status'],
                 'notes' => $validated['notes'],
-                'total' => 0,
+                'total_amount' => 0,
+                'payment_status' => 'pending',
+                'paid_amount' => 0
             ]);
 
             // Agregar productos y calcular total
             $total = 0;
             foreach ($validated['products'] as $product) {
+                $productTotal = $product['quantity'] * $product['unit_price'];
                 $order->products()->attach($product['product_id'], [
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
+                    'total_price' => $productTotal
                 ]);
-                $total += $product['quantity'] * $product['unit_price'];
+                $total += $productTotal;
             }
 
             // Actualizar total del pedido
-            $order->update(['total' => $total]);
+            $order->update(['total_amount' => $total]);
 
             DB::commit();
 
@@ -165,15 +170,17 @@ class OrderController extends Controller
             // Agregar nuevos productos y calcular total
             $total = 0;
             foreach ($validated['products'] as $product) {
+                $productTotal = $product['quantity'] * $product['unit_price'];
                 $order->products()->attach($product['product_id'], [
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
+                    'total_price' => $productTotal
                 ]);
-                $total += $product['quantity'] * $product['unit_price'];
+                $total += $productTotal;
             }
 
             // Actualizar total del pedido
-            $order->update(['total' => $total]);
+            $order->update(['total_amount' => $total]);
 
             DB::commit();
 

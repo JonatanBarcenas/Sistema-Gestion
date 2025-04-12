@@ -6,14 +6,197 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Task;
+use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Exports\ReportExcelExport;
+use App\Services\ReportPdfExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
     public function index()
     {
         return view('reports.index');
+    }
+
+    public function show(Request $request)
+    {
+        $type = $request->input('type', 'general');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        switch ($type) {
+            case 'orders':
+                $data = $this->getOrdersReport($startDate, $endDate);
+                break;
+            case 'projects':
+                $data = $this->getProjectsReport($startDate, $endDate);
+                break;
+            case 'tasks':
+                $data = $this->getTasksReport($startDate, $endDate);
+                break;
+            case 'users':
+                $data = $this->getUsersReport($startDate, $endDate);
+                break;
+            default:
+                $data = $this->getGeneralReport($startDate, $endDate);
+        }
+
+        return view('reports.show', compact('data', 'type'));
+    }
+
+    private function getGeneralReport($startDate, $endDate)
+    {
+        $query = Order::query();
+        
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        return [
+            'total_orders' => $query->count(),
+            'total_revenue' => $query->sum('total'),
+            'average_order_value' => $query->avg('total'),
+            'orders_by_status' => $this->getOrdersByStatus(),
+            'recent_orders' => $query->latest()->take(5)->get(),
+        ];
+    }
+
+    private function getOrdersReport($startDate, $endDate)
+    {
+        $query = Order::with(['customer', 'items']);
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        return [
+            'orders' => $query->get(),
+            'total_revenue' => $query->sum('total'),
+            'orders_by_status' => $this->getOrdersByStatus(),
+            'top_customers' => $query->select('customer_id', DB::raw('count(*) as order_count'), DB::raw('sum(total) as total_spent'))
+                ->groupBy('customer_id')
+                ->orderByDesc('total_spent')
+                ->take(5)
+                ->get(),
+        ];
+    }
+
+    private function getProjectsReport($startDate, $endDate)
+    {
+        $query = Project::with(['client', 'team']);
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        return [
+            'projects' => $query->get(),
+            'projects_by_status' => $query->select('status', DB::raw('count(*) as count'))
+                ->groupBy('status')
+                ->get(),
+            'team_performance' => DB::table('project_team')
+                ->join('users', 'project_team.user_id', '=', 'users.id')
+                ->select('users.name', DB::raw('count(*) as project_count'))
+                ->groupBy('users.id', 'users.name')
+                ->get(),
+        ];
+    }
+
+    private function getTasksReport($startDate, $endDate)
+    {
+        $query = Task::with(['assignedUser', 'project']);
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        return [
+            'tasks' => $query->get(),
+            'tasks_by_status' => $query->select('status', DB::raw('count(*) as count'))
+                ->groupBy('status')
+                ->get(),
+            'user_performance' => $query->select('assigned_to', DB::raw('count(*) as task_count'))
+                ->groupBy('assigned_to')
+                ->get(),
+        ];
+    }
+
+    private function getUsersReport($startDate, $endDate)
+    {
+        $query = User::with(['tasks', 'projects']);
+
+        if ($startDate) {
+            $query->whereHas('tasks', function ($q) use ($startDate) {
+                $q->whereDate('created_at', '>=', $startDate);
+            });
+        }
+        if ($endDate) {
+            $query->whereHas('tasks', function ($q) use ($endDate) {
+                $q->whereDate('created_at', '<=', $endDate);
+            });
+        }
+
+        return [
+            'users' => $query->get(),
+            'user_performance' => User::select('users.id', 'users.name', DB::raw('count(tasks.id) as task_count'))
+                ->leftJoin('tasks', 'users.id', '=', 'tasks.assigned_to')
+                ->groupBy('users.id', 'users.name')
+                ->get(),
+            'project_teams' => DB::table('project_team')
+                ->join('users', 'project_team.user_id', '=', 'users.id')
+                ->join('projects', 'project_team.project_id', '=', 'projects.id')
+                ->select('users.name as user_name', 'projects.name as project_name', 'project_team.role')
+                ->get(),
+        ];
+    }
+
+    public function export(Request $request)
+    {
+        $type = $request->input('type', 'general');
+        $format = $request->input('format', 'pdf');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Get the report data
+        switch ($type) {
+            case 'orders':
+                $data = $this->getOrdersReport($startDate, $endDate);
+                break;
+            case 'projects':
+                $data = $this->getProjectsReport($startDate, $endDate);
+                break;
+            case 'tasks':
+                $data = $this->getTasksReport($startDate, $endDate);
+                break;
+            case 'users':
+                $data = $this->getUsersReport($startDate, $endDate);
+                break;
+            default:
+                $data = $this->getGeneralReport($startDate, $endDate);
+        }
+
+        if ($format === 'excel') {
+            return Excel::download(new ReportExcelExport($data, $type), 'reporte_' . $type . '_' . now()->format('Y-m-d') . '.xlsx');
+        }
+
+        // Default to PDF
+        $pdf = new ReportPdfExport($data, $type);
+        return $pdf->generate();
     }
 
     public function sales(Request $request)
@@ -226,5 +409,14 @@ class ReportController extends Controller
             'status',
             'priority'
         ));
+    }
+
+    private function getOrdersByStatus()
+    {
+        return Order::select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->orderBy('count', 'desc')
+            ->limit(5)
+            ->get();
     }
 }

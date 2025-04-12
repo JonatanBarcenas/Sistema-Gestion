@@ -21,7 +21,7 @@
                 @method('PUT')
             @endif
 
-            <div class="grid grid-cols-1 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Título -->
                 <div>
                     <label for="title" class="block text-sm font-medium text-gray-700">Título</label>
@@ -32,7 +32,7 @@
                 </div>
 
                 <!-- Descripción -->
-                <div>
+                <div class="md:col-span-2">
                     <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
                     <textarea name="description" id="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description') border-red-500 @enderror">{{ old('description', $task->description ?? '') }}</textarea>
                     @error('description')
@@ -52,6 +52,21 @@
                         @endforeach
                     </select>
                     @error('order_id')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Tipo -->
+                <div>
+                    <label for="type" class="block text-sm font-medium text-gray-700">Tipo</label>
+                    <select name="type" id="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('type') border-red-500 @enderror">
+                        <option value="design" {{ old('type', $task->type ?? '') === 'design' ? 'selected' : '' }}>Diseño</option>
+                        <option value="printing" {{ old('type', $task->type ?? '') === 'printing' ? 'selected' : '' }}>Impresión</option>
+                        <option value="advertising" {{ old('type', $task->type ?? '') === 'advertising' ? 'selected' : '' }}>Publicidad</option>
+                        <option value="packaging" {{ old('type', $task->type ?? '') === 'packaging' ? 'selected' : '' }}>Empaque</option>
+                        <option value="other" {{ old('type', $task->type ?? '') === 'other' ? 'selected' : '' }}>Otro</option>
+                    </select>
+                    @error('type')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
@@ -87,6 +102,38 @@
                         <option value="completed" {{ old('status', $task->status ?? '') === 'completed' ? 'selected' : '' }}>Completada</option>
                     </select>
                     @error('status')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Asignados -->
+                <div class="md:col-span-2">
+                    <label for="assignees" class="block text-sm font-medium text-gray-700">Asignados</label>
+                    <select name="assignees[]" id="assignees" multiple class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('assignees') border-red-500 @enderror">
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}" {{ in_array($user->id, old('assignees', isset($task) ? $task->assignees->pluck('id')->toArray() : [])) ? 'selected' : '' }}>
+                                {{ $user->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('assignees')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Dependencias -->
+                <div class="md:col-span-2">
+                    <label for="dependencies" class="block text-sm font-medium text-gray-700">Dependencias</label>
+                    <select name="dependencies[]" id="dependencies" multiple class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('dependencies') border-red-500 @enderror">
+                        @foreach($tasks ?? [] as $dependency)
+                            @if(!isset($task) || $dependency->id !== $task->id)
+                                <option value="{{ $dependency->id }}" {{ in_array($dependency->id, old('dependencies', isset($task) ? $task->dependencies->pluck('id')->toArray() : [])) ? 'selected' : '' }}>
+                                    {{ $dependency->title }}
+                                </option>
+                            @endif
+                        @endforeach
+                    </select>
+                    @error('dependencies')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>

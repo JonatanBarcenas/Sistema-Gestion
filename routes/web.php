@@ -64,15 +64,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 });
 
-// Rutas de Reportes
+// Reports Routes
 Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
-Route::get('/reports/products', [ReportController::class, 'products'])->name('reports.products');
-Route::get('/reports/customers', [ReportController::class, 'customers'])->name('reports.customers');
-Route::get('/reports/tasks', [ReportController::class, 'tasks'])->name('reports.tasks');
-
-// Export reports
-Route::get('/reports/orders/export', [ReportController::class, 'exportOrders'])->name('reports.orders.export');
+Route::get('/reports/show', [ReportController::class, 'show'])->name('reports.show');
+Route::post('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 
 // Rutas de proyectos
 Route::resource('projects', ProjectController::class);

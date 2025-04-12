@@ -15,7 +15,8 @@ class Product extends Model
         'base_price',
         'category',
         'specifications',
-        'is_active'
+        'is_active',
+        'sku'
     ];
 
     protected $casts = [

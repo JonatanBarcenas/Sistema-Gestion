@@ -15,11 +15,10 @@ class Task extends Model
     protected $fillable = [
         'title',
         'description',
-        'status',
-        'priority',
-        'due_date',
-        'project_id',
         'order_id',
+        'due_date',
+        'priority',
+        'status',
         'type',
         'estimated_hours',
         'actual_hours',
@@ -29,28 +28,19 @@ class Task extends Model
         'checklist',
         'color',
         'position',
-        'start_date',
-        'completed_at',
-        'progress',
-        'blocked_by',
-        'dependencies'
+        'dependencies',
+        'blocked_by'
     ];
 
     protected $casts = [
         'due_date' => 'datetime',
-        'start_date' => 'datetime',
-        'completed_at' => 'datetime',
+        'materials_needed' => 'array',
         'attachments' => 'array',
         'checklist' => 'array',
-        'blocked_by' => 'array',
+        'is_active' => 'boolean',
         'dependencies' => 'array',
-        'progress' => 'integer'
+        'blocked_by' => 'array'
     ];
-
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(Project::class);
-    }
 
     public function order(): BelongsTo
     {
@@ -60,13 +50,24 @@ class Task extends Model
     public function assignees(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'task_users')
-            ->withPivot('role')
             ->withTimestamps();
     }
 
     public function comments(): HasMany
     {
         return $this->hasMany(TaskComment::class);
+    }
+
+    public function dependencies(): BelongsToMany
+    {
+        return $this->belongsToMany(Task::class, 'task_dependencies', 'task_id', 'dependency_id')
+            ->withTimestamps();
+    }
+
+    public function dependentTasks(): BelongsToMany
+    {
+        return $this->belongsToMany(Task::class, 'task_dependencies', 'dependency_id', 'task_id')
+            ->withTimestamps();
     }
 
     public function assignUsers(array $userIds, string $role = 'assignee'): void

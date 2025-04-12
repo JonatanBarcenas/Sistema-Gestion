@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,17 +16,14 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Task::with(['project.client', 'assignedUser']);
+        $query = Task::with(['assignees']);
 
         // Búsqueda por título o descripción
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('project', function ($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
+                  ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -44,11 +42,6 @@ class TaskController extends Controller
             $query->where('type', $request->type);
         }
 
-        // Filtro por proyecto
-        if ($request->has('project_id') && $request->project_id !== '') {
-            $query->where('project_id', $request->project_id);
-        }
-
         $tasks = $query->orderBy('position')->paginate(10);
 
         return view('tasks.index', compact('tasks'));
@@ -59,9 +52,10 @@ class TaskController extends Controller
      */
     public function create()
     {
-        $projects = Project::with('client')->get();
         $users = User::all();
-        return view('tasks.form', compact('projects', 'users'));
+        $orders = Order::with('customer')->get();
+        $tasks = Task::select('id', 'title')->get();
+        return view('tasks.form', compact('users', 'orders', 'tasks'));
     }
 
     /**
@@ -72,7 +66,7 @@ class TaskController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'project_id' => 'required|exists:projects,id',
+            'order_id' => 'nullable|exists:orders,id',
             'due_date' => 'required|date',
             'priority' => 'required|in:low,medium,high',
             'status' => 'required|in:pending,in_progress,completed',
@@ -84,7 +78,8 @@ class TaskController extends Controller
             'attachments' => 'nullable|array',
             'checklist' => 'nullable|array',
             'color' => 'nullable|string|max:7',
-            'assigned_to' => 'required|exists:users,id',
+            'assignees' => 'required|array|min:1',
+            'assignees.*' => 'exists:users,id',
             'dependencies' => 'nullable|array',
             'dependencies.*' => 'exists:tasks,id'
         ]);
@@ -92,7 +87,14 @@ class TaskController extends Controller
         try {
             DB::beginTransaction();
 
+            // Remove assignees from validated data as we'll handle them separately
+            $assignees = $validated['assignees'];
+            unset($validated['assignees']);
+
             $task = Task::create($validated);
+
+            // Assign users to the task
+            $task->assignUsers($assignees);
 
             // Asignar dependencias
             if ($request->has('dependencies')) {
@@ -115,12 +117,19 @@ class TaskController extends Controller
     public function show(Task $task)
     {
         $task->load([
-            'project.client',
-            'assignedUser',
-            'dependencies',
-            'dependentTasks',
+            'assignees' => function($query) {
+                $query->select('users.id', 'name', 'email');
+            },
+            'dependencies' => function($query) {
+                $query->select('tasks.id', 'title', 'status');
+            },
+            'dependentTasks' => function($query) {
+                $query->select('tasks.id', 'title', 'status');
+            },
             'comments' => function ($query) {
-                $query->with('user')->latest();
+                $query->with(['user' => function($query) {
+                    $query->select('id', 'name', 'email');
+                }])->latest();
             }
         ]);
         return view('tasks.show', compact('task'));
@@ -131,10 +140,11 @@ class TaskController extends Controller
      */
     public function edit(Task $task)
     {
-        $projects = Project::with('client')->get();
         $users = User::all();
+        $orders = Order::with('customer')->get();
+        $tasks = Task::where('id', '!=', $task->id)->select('id', 'title')->get();
         $task->load(['dependencies', 'dependentTasks']);
-        return view('tasks.form', compact('task', 'projects', 'users'));
+        return view('tasks.form', compact('task', 'users', 'orders', 'tasks'));
     }
 
     /**
@@ -145,7 +155,7 @@ class TaskController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'project_id' => 'required|exists:projects,id',
+            'order_id' => 'nullable|exists:orders,id',
             'due_date' => 'required|date',
             'priority' => 'required|in:low,medium,high',
             'status' => 'required|in:pending,in_progress,completed',
@@ -157,7 +167,8 @@ class TaskController extends Controller
             'attachments' => 'nullable|array',
             'checklist' => 'nullable|array',
             'color' => 'nullable|string|max:7',
-            'assigned_to' => 'required|exists:users,id',
+            'assignees' => 'required|array|min:1',
+            'assignees.*' => 'exists:users,id',
             'dependencies' => 'nullable|array',
             'dependencies.*' => 'exists:tasks,id'
         ]);
@@ -165,9 +176,16 @@ class TaskController extends Controller
         try {
             DB::beginTransaction();
 
+            // Remove assignees from validated data as we'll handle them separately
+            $assignees = $validated['assignees'];
+            unset($validated['assignees']);
+
             $task->update($validated);
 
-            // Actualizar dependencias
+            // Update task assignees
+            $task->assignUsers($assignees);
+
+            // Update dependencies
             $task->dependencies()->sync($request->dependencies ?? []);
 
             DB::commit();
