@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TareaRequest;
 use App\Models\Task;
-use App\Models\Project;
 use App\Models\User;
 use App\Models\Order;
 use Illuminate\Http\Request;
@@ -61,48 +61,23 @@ class TaskController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(TareaRequest $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'order_id' => 'nullable|exists:orders,id',
-            'due_date' => 'required|date',
-            'priority' => 'required|in:low,medium,high',
-            'status' => 'required|in:pending,in_progress,completed',
-            'type' => 'required|in:design,printing,advertising,packaging,other',
-            'estimated_hours' => 'nullable|numeric|min:0',
-            'actual_hours' => 'nullable|numeric|min:0',
-            'materials_needed' => 'nullable|array',
-            'notes' => 'nullable|string',
-            'attachments' => 'nullable|array',
-            'checklist' => 'nullable|array',
-            'color' => 'nullable|string|max:7',
-            'assignees' => 'required|array|min:1',
-            'assignees.*' => 'exists:users,id',
-            'dependencies' => 'nullable|array',
-            'dependencies.*' => 'exists:tasks,id'
-        ]);
-
         try {
             DB::beginTransaction();
-
-            // Remove assignees from validated data as we'll handle them separately
+            
+            $validated = $request->validated();
             $assignees = $validated['assignees'];
             unset($validated['assignees']);
 
             $task = Task::create($validated);
-
-            // Assign users to the task
             $task->assignUsers($assignees);
 
-            // Asignar dependencias
-            if ($request->has('dependencies')) {
-                $task->dependencies()->attach($request->dependencies);
+            if (isset($validated['dependencies'])) {
+                $task->dependencies()->attach($validated['dependencies']);
             }
 
             DB::commit();
-
             return redirect()->route('tasks.show', $task)
                 ->with('success', 'Tarea creada exitosamente.');
         } catch (\Exception $e) {
@@ -117,20 +92,10 @@ class TaskController extends Controller
     public function show(Task $task)
     {
         $task->load([
-            'assignees' => function($query) {
-                $query->select('users.id', 'name', 'email');
-            },
-            'dependencies' => function($query) {
-                $query->select('tasks.id', 'title', 'status');
-            },
-            'dependentTasks' => function($query) {
-                $query->select('tasks.id', 'title', 'status');
-            },
-            'comments' => function ($query) {
-                $query->with(['user' => function($query) {
-                    $query->select('id', 'name', 'email');
-                }])->latest();
-            }
+            'assignees' => fn($q) => $q->select('users.id', 'name', 'email'),
+            'dependencies' => fn($q) => $q->select('tasks.id', 'title', 'status'),
+            'dependentTasks' => fn($q) => $q->select('tasks.id', 'title', 'status'),
+            'comments' => fn($q) => $q->with(['user' => fn($q) => $q->select('id', 'name', 'email')])->latest()
         ]);
         return view('tasks.show', compact('task'));
     }
@@ -150,46 +115,20 @@ class TaskController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Task $task)
+    public function update(TareaRequest $request, Task $task)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'order_id' => 'nullable|exists:orders,id',
-            'due_date' => 'required|date',
-            'priority' => 'required|in:low,medium,high',
-            'status' => 'required|in:pending,in_progress,completed',
-            'type' => 'required|in:design,printing,advertising,packaging,other',
-            'estimated_hours' => 'nullable|numeric|min:0',
-            'actual_hours' => 'nullable|numeric|min:0',
-            'materials_needed' => 'nullable|array',
-            'notes' => 'nullable|string',
-            'attachments' => 'nullable|array',
-            'checklist' => 'nullable|array',
-            'color' => 'nullable|string|max:7',
-            'assignees' => 'required|array|min:1',
-            'assignees.*' => 'exists:users,id',
-            'dependencies' => 'nullable|array',
-            'dependencies.*' => 'exists:tasks,id'
-        ]);
-
         try {
             DB::beginTransaction();
 
-            // Remove assignees from validated data as we'll handle them separately
+            $validated = $request->validated();
             $assignees = $validated['assignees'];
             unset($validated['assignees']);
 
             $task->update($validated);
-
-            // Update task assignees
             $task->assignUsers($assignees);
-
-            // Update dependencies
-            $task->dependencies()->sync($request->dependencies ?? []);
+            $task->dependencies()->sync($validated['dependencies'] ?? []);
 
             DB::commit();
-
             return redirect()->route('tasks.show', $task)
                 ->with('success', 'Tarea actualizada exitosamente.');
         } catch (\Exception $e) {
@@ -205,19 +144,13 @@ class TaskController extends Controller
     {
         try {
             DB::beginTransaction();
-
-            // Eliminar dependencias
+            
             $task->dependencies()->detach();
             $task->dependentTasks()->detach();
-
-            // Eliminar comentarios
             $task->comments()->delete();
-
-            // Eliminar la tarea
             $task->delete();
 
             DB::commit();
-
             return redirect()->route('tasks.index')
                 ->with('success', 'Tarea eliminada exitosamente.');
         } catch (\Exception $e) {

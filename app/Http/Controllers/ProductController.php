@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ProductoRequest;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,23 +46,11 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(ProductoRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'category' => 'required|in:electronics,clothing,food,other',
-            'base_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
-            'sku' => 'required|string|unique:products,sku',
-            'is_active' => 'boolean'
-        ]);
-
         try {
             DB::beginTransaction();
-
-            $product = Product::create($validated);
-
+            $product = Product::create($request->validated());
             DB::commit();
 
             return redirect()->route('products.index')
@@ -92,23 +81,11 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Product $product)
+    public function update(ProductoRequest $request, Product $product)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'category' => 'required|in:electronics,clothing,food,other',
-            'base_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
-            'sku' => 'required|string|unique:products,sku,' . $product->id,
-            'is_active' => 'boolean'
-        ]);
-
         try {
             DB::beginTransaction();
-
-            $product->update($validated);
-
+            $product->update($request->validated());
             DB::commit();
 
             return redirect()->route('products.index')

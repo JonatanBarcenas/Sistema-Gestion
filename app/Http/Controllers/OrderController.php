@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Http\Requests\PedidoRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -57,19 +58,8 @@ class OrderController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(PedidoRequest $request)
     {
-        $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'delivery_date' => 'required|date',
-            'status' => 'required|in:pending,in_progress,completed,cancelled',
-            'notes' => 'nullable|string',
-            'products' => 'required|array|min:1',
-            'products.*.product_id' => 'required|exists:products,id',
-            'products.*.quantity' => 'required|integer|min:1',
-            'products.*.unit_price' => 'required|numeric|min:0',
-        ]);
-
         try {
             DB::beginTransaction();
 
@@ -78,6 +68,8 @@ class OrderController extends Controller
             while (Order::where('order_number', $orderNumber)->exists()) {
                 $orderNumber = 'ORD-' . strtoupper(Str::random(8));
             }
+
+            $validated = $request->validated();
 
             // Crear el pedido
             $order = Order::create([
@@ -140,21 +132,12 @@ class OrderController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Order $order)
+    public function update(PedidoRequest $request, Order $order)
     {
-        $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'delivery_date' => 'required|date',
-            'status' => 'required|in:pending,in_progress,completed,cancelled',
-            'notes' => 'nullable|string',
-            'products' => 'required|array|min:1',
-            'products.*.product_id' => 'required|exists:products,id',
-            'products.*.quantity' => 'required|integer|min:1',
-            'products.*.unit_price' => 'required|numeric|min:0',
-        ]);
-
         try {
             DB::beginTransaction();
+
+            $validated = $request->validated();
 
             // Actualizar información básica del pedido
             $order->update([

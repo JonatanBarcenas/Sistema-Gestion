@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ClienteRequest;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,21 +47,11 @@ class CustomerController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(ClienteRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:customers,email',
-            'phone' => 'required|string|max:20',
-            'address' => 'required|string',
-            'status' => 'required|in:active,inactive',
-        ]);
-
         try {
             DB::beginTransaction();
-
-            Customer::create($validated);
-
+            Customer::create($request->validated());
             DB::commit();
 
             return redirect()->route('customers.index')
@@ -90,21 +81,11 @@ class CustomerController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Customer $customer)
+    public function update(ClienteRequest $request, Customer $customer)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:customers,email,' . $customer->id,
-            'phone' => 'required|string|max:20',
-            'address' => 'required|string',
-            'status' => 'required|in:active,inactive',
-        ]);
-
         try {
             DB::beginTransaction();
-
-            $customer->update($validated);
-
+            $customer->update($request->validated());
             DB::commit();
 
             return redirect()->route('customers.index')
