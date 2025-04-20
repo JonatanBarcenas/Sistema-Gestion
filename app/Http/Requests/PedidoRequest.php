@@ -25,8 +25,6 @@ class PedidoRequest extends FormRequest
         return [
             'customer_id' => 'required|exists:customers,id',
             'delivery_date' => 'required|date|after_or_equal:today',
-            'order_number' => 'required|string|max:255|unique:orders,order_number',
-            'payment_method' => 'required|in:credit_card,cash,bank_transfer',
             'status' => 'required|in:pending,in_progress,completed,cancelled',
             'notes' => 'nullable|string',
             'products' => 'required|array|min:1',
@@ -45,7 +43,6 @@ class PedidoRequest extends FormRequest
         'delivery_date.required' => 'La fecha de entrega es obligatoria.',
         'delivery_date.date' => 'La fecha de entrega debe ser una fecha válida.',
         'delivery_date.after_or_equal'=> 'La fecha debe ser posterior o igual a hoy.',
-        'order_number.required' => 'El número de pedido es obligatorio.',
         'order_number.string' => 'El número de pedido debe ser una cadena de texto.',
         'order_number.max' => 'El número de pedido no puede exceder los 255 caracteres.',
         'order_number.unique' => 'El número de pedido ya está en uso.',

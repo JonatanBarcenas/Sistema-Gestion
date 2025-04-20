@@ -21,6 +21,18 @@
                 @method('PUT')
             @endif
 
+            <!-- Mostrar errores globales -->
+            @if ($errors->any())
+                <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    <h3 class="font-semibold">Por favor corrige los siguientes errores:</h3>
+                    <ul class="mt-2 list-disc list-inside">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Título -->
                 <div>
@@ -147,4 +159,4 @@
         </form>
     </div>
 </div>
-@endsection 
+@endsection
