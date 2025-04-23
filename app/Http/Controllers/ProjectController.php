@@ -73,6 +73,7 @@ class ProjectController extends Controller
             'budget' => 'nullable|numeric|min:0',
             'priority' => 'required|in:low,medium,high',
             'type' => 'required|in:design,printing,advertising,packaging,other',
+            'order_number' => 'required|string|unique:projects,order_number', // Agregado para validar duplicados
             'notes' => 'nullable|string',
             'team' => 'required|array|min:1',
             'team.*' => 'exists:users,id'
