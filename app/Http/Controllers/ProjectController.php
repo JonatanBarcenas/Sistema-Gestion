@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Notifications\ProjectNotification;
 
 class ProjectController extends Controller
 {
@@ -86,6 +87,9 @@ class ProjectController extends Controller
 
             // Asignar equipo
             $project->team()->attach($request->team);
+            
+            // Notificar al cliente sobre la creación del nuevo proyecto
+            $this->notifyClientNewProject($project);
 
             DB::commit();
 
@@ -141,11 +145,24 @@ class ProjectController extends Controller
 
         try {
             DB::beginTransaction();
-
+            
+            // Guardar el estado anterior para detectar cambios
+            $oldStatus = $project->status;
+            $oldEndDate = $project->end_date;
+            
             $project->update($validated);
 
             // Actualizar equipo
             $project->team()->sync($request->team);
+            
+            // Verificar si hubo cambios significativos que requieran notificación
+            $statusChanged = $oldStatus !== $project->status;
+            $endDateChanged = $oldEndDate !== $project->end_date;
+            
+            // Notificar al cliente sobre cambios importantes
+            if ($statusChanged || $endDateChanged) {
+                $this->notifyClient($project, $statusChanged, $endDateChanged);
+            }
 
             DB::commit();
 
@@ -220,6 +237,11 @@ class ProjectController extends Controller
                 'content' => $validated['content'],
                 'attachments' => $validated['attachments'] ?? null
             ]);
+            
+            // Notificar al cliente sobre el nuevo comentario si está marcado como importante
+            if ($request->has('is_important') && $request->is_important) {
+                $this->notifyClient($project, false, false, true, $validated['content']);
+            }
 
             DB::commit();
 
@@ -231,5 +253,131 @@ class ProjectController extends Controller
             DB::rollBack();
             return response()->json(['error' => 'Error al agregar el comentario'], 500);
         }
+    }
+    
+    /**
+     * Notifica al cliente sobre cambios importantes en el proyecto.
+     *
+     * @param  Project  $project
+     * @param  bool  $statusChanged
+     * @param  bool  $endDateChanged
+     * @param  bool  $newComment
+     * @param  string|null  $commentContent
+     * @return void
+     */
+    protected function notifyClient(Project $project, $statusChanged = false, $endDateChanged = false, $newComment = false, $commentContent = null)
+    {
+        // Verificar si el proyecto tiene un cliente asociado
+        if (!$project->client_id) {
+            return;
+        }
+        
+        $client = $project->client;
+        $preferences = $client->getOrCreateNotificationPreference();
+        
+        // Verificar las preferencias de notificación según el tipo de evento
+        if ($statusChanged && !$preferences->project_status_changed) {
+            return;
+        }
+        
+        if ($endDateChanged && !$preferences->project_updated) {
+            return;
+        }
+        
+        if ($newComment && !$preferences->project_comment_added) {
+            return;
+        }
+        
+        if (!$statusChanged && !$endDateChanged && !$newComment && !$preferences->project_updated) {
+            return;
+        }
+        
+        // Preparar los datos de la notificación
+        $data = [
+            'subject' => 'Actualización en tu proyecto: ' . $project->name,
+            'action_url' => route('projects.show', $project->id),
+            'action_text' => 'Ver Proyecto',
+            'project_id' => $project->id,
+            'type' => 'project_update'
+        ];
+        
+        // Personalizar el mensaje según el tipo de cambio
+        if ($statusChanged) {
+            $data['message'] = 'El estado de tu proyecto ha sido actualizado.';
+            $data['description'] = 'El proyecto ahora está: ' . $this->getStatusText($project->status);
+            $data['type'] = 'project_status_changed';
+        } elseif ($endDateChanged) {
+            $data['message'] = 'La fecha de finalización de tu proyecto ha sido modificada.';
+            $data['description'] = 'Nueva fecha de finalización: ' . $project->end_date->format('d/m/Y');
+            $data['type'] = 'project_updated';
+        } elseif ($newComment) {
+            $data['message'] = 'Se ha agregado un comentario importante a tu proyecto.';
+            $data['description'] = $commentContent;
+            $data['type'] = 'project_comment_added';
+        } else {
+            $data['message'] = 'Se han realizado cambios en tu proyecto.';
+            $data['type'] = 'project_updated';
+        }
+        
+        // Enviar la notificación al cliente
+        $client->notify(new ProjectNotification($data, $project));
+    }
+    
+    /**
+     * Obtiene el texto legible del estado del proyecto.
+     *
+     * @param  string  $status
+     * @return string
+     */
+    protected function getStatusText($status)
+    {
+        $statusMap = [
+            'planning' => 'En Planificación',
+            'in_progress' => 'En Progreso',
+            'on_hold' => 'En Espera',
+            'completed' => 'Completado',
+            'cancelled' => 'Cancelado'
+        ];
+        
+        return $statusMap[$status] ?? $status;
+    }
+    
+    /**
+     * Notifica al cliente sobre la creación de un nuevo proyecto.
+     *
+     * @param  Project  $project
+     * @return void
+     */
+    protected function notifyClientNewProject(Project $project)
+    {
+        // Verificar si el proyecto tiene un cliente asociado
+        if (!$project->client_id) {
+            return;
+        }
+        
+        $client = $project->client;
+        $preferences = $client->getOrCreateNotificationPreference();
+        
+        // Verificar si el cliente desea recibir notificaciones de creación de proyectos
+        if (!$preferences->project_created) {
+            return;
+        }
+        
+        // Preparar los datos de la notificación
+        $data = [
+            'subject' => 'Nuevo proyecto creado: ' . $project->name,
+            'message' => 'Se ha creado un nuevo proyecto para ti.',
+            'description' => 'Detalles del proyecto:\n' . 
+                             'Nombre: ' . $project->name . '\n' .
+                             'Estado: ' . $this->getStatusText($project->status) . '\n' .
+                             'Prioridad: ' . ucfirst($project->priority),
+            'action_url' => route('projects.show', $project->id),
+            'action_text' => 'Ver Proyecto',
+            'project_id' => $project->id,
+            'type' => 'project_created'
+        ];
+        
+        // Enviar la notificación al cliente
+        $client->notify(new ProjectNotification($data, $project));
     }
 }

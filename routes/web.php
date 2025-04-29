@@ -12,10 +12,13 @@ use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\ProjectCommentController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use Illuminate\Support\Facades\Mail;
 
 // Rutas públicas (login y register)
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -60,6 +63,16 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
     Route::post('/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+    
+    // Rutas de preferencias de notificación
+    Route::get('/customers/{customer}/notification-preferences', [NotificationPreferenceController::class, 'edit'])->name('notification.preferences.edit');
+    Route::put('/customers/{customer}/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification.preferences.update');
+    
+    // Rutas de registro de correos
+    Route::get('/emails', [EmailLogController::class, 'index'])->name('emails.index');
+    Route::get('/emails/guide/notifications', [EmailLogController::class, 'showNotificationGuide'])->name('emails.notification.guide');
+    Route::get('/emails/{emailLog}', [EmailLogController::class, 'show'])->name('emails.show');
+    Route::delete('/emails/{emailLog}', [EmailLogController::class, 'destroy'])->name('emails.destroy');
 
     // Rutas de reportes
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
@@ -91,4 +104,12 @@ Route::middleware(['auth'])->group(function () {
         session()->put('last_activity', time());
         return response()->json(['success' => true]);
     })->name('session.extend');
+});
+
+Route::get('/test-mail', function () {
+    Mail::raw('Este es un correo de prueba.', function ($message) {
+        $message->to('alfonsoacosta207@gmail.com')
+                ->subject('Correo de prueba');
+    });
+    return 'Correo enviado.';
 });

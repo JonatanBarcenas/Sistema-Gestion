@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -25,7 +25,7 @@
         }
     </script>
 </head>
-<body class="font-sans antialiased">
+<body>
     <div class="min-h-screen bg-gray-100">
         <!-- Sidebar -->
         <aside class="fixed inset-y-0 left-0 bg-white shadow-lg max-h-screen w-64">
@@ -81,158 +81,27 @@
                                     </svg>Reportes
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('emails.index') }}" class="flex bg-white hover:bg-gray-100 rounded-xl font-bold text-sm text-gray-900 py-3 px-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="text-indigo-600 mr-3" viewBox="0 0 16 16">
+                                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.758 2.855L15 11.114v-5.73zm-.034 6.878L9.271 8.82 8 9.583 6.728 8.82l-5.694 3.44A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.739zM1 11.114l4.758-2.876L1 5.383v5.73z"/>
+                                    </svg>Correos
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <!-- Main content -->
-        <div class="ml-64">
-            <!-- Top navigation -->
-            <header class="bg-white shadow">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                    <div class="flex justify-between items-center">
-                        <h1 class="text-3xl font-bold text-gray-900">
-                            @yield('title', 'Dashboard')
-                        </h1>
-                        <div class="flex items-center">
-                            <div class="ml-3 relative">
-                                @auth
-                                    <!-- Notificaciones -->
-                                    @include('layouts.partials.notification-dropdown')
-                                    <!-- Usuario y Cerrar sesión -->
-                                    <div class="flex items-center">
-                                        <span class="text-gray-700 mr-4">{{ Auth::user()->name }}</span>
-                                        <form method="POST" action="{{ route('logout') }}">
-                                            @csrf
-                                            <button type="submit" class="text-gray-600 hover:text-gray-900">
-                                                Cerrar sesión
-                                            </button>
-                                        </form>
-                                    </div>
-                                @else
-                                    <span class="text-gray-600">No autenticado</span>
-                                @endauth
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+        <!-- Contenido principal -->
+        <main class="ml-64 p-6">
+            {{ $slot ?? '' }}
+            @yield('content')
+        </main>
 
-            <!-- Page Content -->
-            <main class="py-6">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    @if (session('success'))
-                        <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                            <span class="block sm:inline">{{ session('success') }}</span>
-                        </div>
-                    @endif
-
-                    @if (session('error'))
-                        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                            <span class="block sm:inline">{{ session('error') }}</span>
-                        </div>
-                    @endif
-
-                    @yield('content')
-                </div>
-            </main>
-        </div>
+        <!-- Notificación de correo enviado -->
+        @include('components.email-notification')
     </div>
-
-    @stack('scripts')
-    
-    <!-- Session Timeout Modal -->
-    <div id="sessionTimeoutModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full" style="z-index: 100;">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Sesión a punto de expirar</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500">
-                        Tu sesión expirará en <span id="countdown">60</span> segundos.
-                        ¿Deseas mantener la sesión activa?
-                    </p>
-                </div>
-                <div class="items-center px-4 py-3">
-                    <button id="extendSession" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        Mantener sesión
-                    </button>
-                    <button id="logoutSession" class="mt-2 px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                        Cerrar sesión
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let timeout;
-            let warningTimeout;
-            const warningTime = 60; // 60 segundos antes de expirar
-            const sessionLifetime = {{ config('session.lifetime') * 60 }}; // Tiempo total de la sesión en segundos
-
-            function resetTimeout() {
-                clearTimeout(timeout);
-                clearTimeout(warningTimeout);
-                
-                // Establecer el timeout principal
-                timeout = setTimeout(function() {
-                    window.location.href = "{{ route('logout') }}";
-                }, sessionLifetime * 1000);
-
-                // Establecer el timeout de advertencia
-                warningTimeout = setTimeout(function() {
-                    showWarning();
-                }, (sessionLifetime - warningTime) * 1000);
-            }
-
-            function showWarning() {
-                const modal = document.getElementById('sessionTimeoutModal');
-                const countdown = document.getElementById('countdown');
-                let seconds = warningTime;
-
-                modal.classList.remove('hidden');
-
-                const countdownInterval = setInterval(function() {
-                    seconds--;
-                    countdown.textContent = seconds;
-
-                    if (seconds <= 0) {
-                        clearInterval(countdownInterval);
-                        modal.classList.add('hidden');
-                        window.location.href = "{{ route('logout') }}";
-                    }
-                }, 1000);
-            }
-
-            // Eventos para mantener la sesión activa
-            document.addEventListener('mousemove', resetTimeout);
-            document.addEventListener('keypress', resetTimeout);
-            document.addEventListener('click', resetTimeout);
-
-            // Botones del modal
-            document.getElementById('extendSession').addEventListener('click', function() {
-                fetch("{{ route('session.extend') }}", {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json'
-                    }
-                }).then(function() {
-                    document.getElementById('sessionTimeoutModal').classList.add('hidden');
-                    resetTimeout();
-                });
-            });
-
-            document.getElementById('logoutSession').addEventListener('click', function() {
-                window.location.href = "{{ route('logout') }}";
-            });
-
-            // Iniciar el timeout
-            resetTimeout();
-        });
-    </script>
 </body>
 </html>

@@ -35,9 +35,9 @@ class Project extends Model
         'position' => 'integer'
     ];
 
-    public function client()
+    public function customer()
     {
-        return $this->belongsTo(Customer::class, 'client_id');
+        return $this->belongsTo(Customer::class);
     }
 
     public function tasks()
@@ -75,4 +75,4 @@ class Project extends Model
         
         return $now->diffInDays($this->end_date);
     }
-} 
+}

@@ -42,7 +42,7 @@ class Task extends Model
         'blocked_by' => 'array'
     ];
 
-    public function order(): BelongsTo
+    public function order()
     {
         return $this->belongsTo(Order::class);
     }

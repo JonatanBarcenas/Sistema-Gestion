@@ -139,7 +139,8 @@
                     <select name="dependencies[]" id="dependencies" multiple class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('dependencies') border-red-500 @enderror">
                         @foreach($tasks ?? [] as $dependency)
                             @if(!isset($task) || $dependency->id !== $task->id)
-                                <option value="{{ $dependency->id }}" {{ in_array($dependency->id, old('dependencies', isset($task) ? $task->dependencies->pluck('id')->toArray() : [])) ? 'selected' : '' }}>
+                                <option value="{{ $dependency->id }}" 
+                                    {{ in_array($dependency->id, old('dependencies', isset($task) && $task->dependencies ? $task->dependencies->pluck('id')->toArray() : [])) ? 'selected' : '' }}>
                                     {{ $dependency->title }}
                                 </option>
                             @endif

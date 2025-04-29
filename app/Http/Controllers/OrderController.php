@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PedidoRequest;
+use App\Mail\OrderUpdate;
 use App\Models\Order;
 use App\Models\Customer;
 use App\Models\Product;
-use App\Http\Requests\PedidoRequest;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
@@ -20,7 +22,7 @@ class OrderController extends Controller
         $query = Order::with('customer');
 
         // Búsqueda
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
@@ -51,8 +53,7 @@ class OrderController extends Controller
     public function create()
     {
         $customers = Customer::where('status', 'active')->get();
-        $products = Product::where('is_active', true)->get();
-        return view('orders.form', compact('customers', 'products'));
+        return view('orders.form', compact('customers'));
     }
 
     /**
@@ -62,7 +63,7 @@ class OrderController extends Controller
     {
         try {
             DB::beginTransaction();
-
+            
             // Generar número de pedido único
             $orderNumber = 'ORD-' . strtoupper(Str::random(8));
             while (Order::where('order_number', $orderNumber)->exists()) {
@@ -101,6 +102,9 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Enviar notificación
+            $this->notifyCustomer($order, 'created');
+
             return redirect()->route('orders.show', $order)
                 ->with('success', 'Pedido creado exitosamente.');
         } catch (\Exception $e) {
@@ -137,6 +141,8 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
+            $oldStatus = $order->status;
+            
             $validated = $request->validated();
 
             // Actualizar información básica del pedido
@@ -167,6 +173,10 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Determinar tipo de notificación
+            $notificationType = $oldStatus !== $validated['status'] ? 'status_changed' : 'updated';
+            $this->notifyCustomer($order, $notificationType);
+
             return redirect()->route('orders.show', $order)
                 ->with('success', 'Pedido actualizado exitosamente.');
         } catch (\Exception $e) {
@@ -196,6 +206,50 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Error al eliminar el pedido: ' . $e->getMessage());
+        }
+    }
+
+    protected function notifyCustomer(Order $order, $action)
+    {
+        try {
+            \Log::info('Iniciando notificación al cliente', [
+                'order_id' => $order->id,
+                'action' => $action
+            ]);
+
+            $customer = $order->customer;
+
+            if (!$customer) {
+                \Log::warning('Orden sin cliente asociado', ['order_id' => $order->id]);
+                return;
+            }
+
+            $message = $this->getNotificationMessage($action, $order);
+            $actionUrl = route('orders.show', $order->id);
+
+            Mail::to($customer->email)
+                ->send(new OrderUpdate($order, $message, $actionUrl));
+
+            \Log::info('Notificación enviada exitosamente');
+        } catch (\Exception $e) {
+            \Log::error('Error al enviar notificación', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    protected function getNotificationMessage($action, $order)
+    {
+        switch ($action) {
+            case 'created':
+                return "Su pedido #{$order->order_number} ha sido creado exitosamente.";
+            case 'updated':
+                return "Su pedido #{$order->order_number} ha sido actualizado.";
+            case 'status_changed':
+                return "El estado de su pedido #{$order->order_number} ha cambiado a {$order->status}.";
+            default:
+                return "Ha habido una actualización en su pedido #{$order->order_number}.";
         }
     }
 }
