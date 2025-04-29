@@ -62,7 +62,7 @@
             </div>
         </div>
 
-        @if(isset($task->dependencies) && $task->dependencies->count() > 0)
+        @if($task->dependencies && $task->dependencies instanceof \Illuminate\Support\Collection && $task->dependencies->count() > 0)
             <div class="mt-6">
                 <h2 class="text-lg font-semibold mb-2">Dependencias</h2>
                 <ul class="list-disc list-inside space-y-1">
