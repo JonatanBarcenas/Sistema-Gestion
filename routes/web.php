@@ -112,4 +112,10 @@ Route::get('/test-mail', function () {
                 ->subject('Correo de prueba');
     });
     return 'Correo enviado.';
-});
+});Route::post('/debug-task-update/{task}', function(Request $request, Task $task) {
+    \Log::info('Debug task update request', [
+        'request_data' => $request->all(),
+        'task_id' => $task->id
+    ]);
+    return response()->json($request->all());
+})->name('debug.task.update');

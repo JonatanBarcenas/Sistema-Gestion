@@ -62,20 +62,20 @@
             </div>
         </div>
 
-        @if($task->dependencies->count() > 0)
-        <div class="mt-6">
-            <h2 class="text-lg font-semibold mb-2">Dependencias</h2>
-            <ul class="list-disc list-inside space-y-1">
-                @foreach($task->dependencies as $dependency)
-                    <li>
-                        <a href="{{ route('tasks.show', $dependency) }}" class="text-blue-600 hover:text-blue-800">
-                            {{ $dependency->title }}
-                        </a>
-                        <span class="text-sm text-gray-500">({{ ucfirst($dependency->status) }})</span>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
+        @if(isset($task->dependencies) && $task->dependencies->count() > 0)
+            <div class="mt-6">
+                <h2 class="text-lg font-semibold mb-2">Dependencias</h2>
+                <ul class="list-disc list-inside space-y-1">
+                    @foreach($task->dependencies as $dependency)
+                        <li>
+                            <a href="{{ route('tasks.show', $dependency) }}" class="text-blue-600 hover:text-blue-800">
+                                {{ $dependency->title }}
+                            </a>
+                            <span class="text-sm text-gray-500">({{ ucfirst($dependency->status) }})</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
         @endif
 
         @if($task->dependentTasks->count() > 0)
@@ -114,4 +114,4 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection

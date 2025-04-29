@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PedidoRequest;
 use App\Mail\OrderUpdate;
+use App\Models\EmailLog;
 use App\Models\Order;
 use App\Models\Customer;
 use App\Models\Product;
@@ -227,11 +228,28 @@ class OrderController extends Controller
             $message = $this->getNotificationMessage($action, $order);
             $actionUrl = route('orders.show', $order->id);
 
+            // Crear registro de email
+            $emailLog = EmailLog::create([
+                'recipient' => $customer->email,
+                'subject' => "Actualización en pedido #{$order->order_number}",
+                'message' => $message,
+                'status' => 'pending'
+            ]);
+
             Mail::to($customer->email)
                 ->send(new OrderUpdate($order, $message, $actionUrl));
 
+            // Actualizar registro de email
+            $emailLog->update([
+                'status' => 'sent',
+                'sent_at' => now()
+            ]);
+
             \Log::info('Notificación enviada exitosamente');
         } catch (\Exception $e) {
+            if (isset($emailLog)) {
+                $emailLog->update(['status' => 'error']);
+            }
             \Log::error('Error al enviar notificación', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

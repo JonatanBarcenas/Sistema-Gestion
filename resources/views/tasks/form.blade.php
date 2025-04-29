@@ -140,7 +140,7 @@
                         @foreach($tasks ?? [] as $dependency)
                             @if(!isset($task) || $dependency->id !== $task->id)
                                 <option value="{{ $dependency->id }}" 
-                                    {{ in_array($dependency->id, old('dependencies', isset($task) && $task->dependencies ? $task->dependencies->pluck('id')->toArray() : [])) ? 'selected' : '' }}>
+                                    {{ in_array($dependency->id, old('dependencies', isset($task) ? $task->getDependencyIds() : [])) ? 'selected' : '' }}>
                                     {{ $dependency->title }}
                                 </option>
                             @endif

@@ -9,6 +9,9 @@ use App\Models\Order;
 use App\Notifications\TaskNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Mail\TaskUpdate;
+use App\Models\EmailLog;
+use Illuminate\Support\Facades\Mail;
 
 class TaskController extends Controller
 {
@@ -55,7 +58,7 @@ class TaskController extends Controller
     {
         $users = User::all();
         $orders = Order::with('customer')->get();
-        $tasks = Task::all(); // Add this line
+        $tasks = Task::all();
 
         return view('tasks.form', compact('users', 'orders', 'tasks'));
     }
@@ -96,12 +99,8 @@ class TaskController extends Controller
      */
     public function show(Task $task)
     {
-        $task->load([
-            'assignees' => fn($q) => $q->select('users.id', 'name', 'email'),
-            'dependencies' => fn($q) => $q->select('tasks.id', 'title', 'status'),
-            'dependentTasks' => fn($q) => $q->select('tasks.id', 'title', 'status'),
-            'comments' => fn($q) => $q->with(['user' => fn($q) => $q->select('id', 'name', 'email')])->latest()
-        ]);
+        $task->load(['assignees', 'dependencies', 'dependentTasks', 'comments.user']);
+        
         return view('tasks.show', compact('task'));
     }
 
@@ -110,9 +109,10 @@ class TaskController extends Controller
      */
     public function edit(Task $task)
     {
+        $task->load('dependencies');
         $users = User::all();
         $orders = Order::with('customer')->get();
-        $tasks = Task::where('id', '!=', $task->id)->get(); // Exclude current task
+        $tasks = Task::where('id', '!=', $task->id)->get();
 
         return view('tasks.form', compact('task', 'users', 'orders', 'tasks'));
     }
@@ -125,33 +125,53 @@ class TaskController extends Controller
         try {
             DB::beginTransaction();
 
-            $validated = $request->validated();
-            $assignees = $validated['assignees'];
-            unset($validated['assignees']);
-
-            // Guardar cambios importantes para la notificación
+            $oldValues = $task->getAttributes();
+            
+            // Update task
+            $task->update($request->validated());
+            
+            // Track changes
             $changes = [];
-            foreach ($validated as $field => $value) {
-                if ($task->$field != $value) {
-                    $changes[$field] = $value;
+            $newValues = $task->getAttributes();
+            foreach ($oldValues as $field => $oldValue) {
+                if (isset($newValues[$field]) && $oldValue !== $newValues[$field]) {
+                    $changes[$field] = [
+                        'old' => $oldValue,
+                        'new' => $newValues[$field]
+                    ];
                 }
             }
 
-            $task->update($validated);
-            $task->assignUsers($assignees);
-            $task->dependencies()->sync($validated['dependencies'] ?? []);
+            // Sincronizar asignados
+            if ($request->has('assignees')) {
+                $task->assignees()->sync($request->assignees);
+            }
 
-            // Notificar al cliente sobre los cambios
-            if (!empty($changes)) {
-                $this->notifyClient($task, 'updated', $changes);
+            // Sincronizar dependencias
+            if ($request->has('dependencies')) {
+                $task->dependencies()->sync($request->dependencies);
             }
 
             DB::commit();
-            return redirect()->route('tasks.show', $task)
-                ->with('success', 'Tarea actualizada exitosamente.');
+
+            // Notify with changes
+            $this->notifyClient($task, 'updated', $changes);
+
+            return redirect()
+                ->route('tasks.show', $task)
+                ->with('success', 'Tarea actualizada exitosamente');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al actualizar la tarea: ' . $e->getMessage());
+            \Log::error('Error actualizando tarea', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->withInput()
+                ->with('error', 'Error al actualizar la tarea: ' . $e->getMessage());
         }
     }
 
@@ -296,59 +316,69 @@ class TaskController extends Controller
 
     protected function notifyClient(Task $task, $action, $changes = [])
     {
-        \Log::info('Iniciando notifyClient', [
-            'task_id' => $task->id,
-            'action' => $action
-        ]);
-
         try {
-            // Verificar si la tarea tiene orden
+            \Log::info('Iniciando notificación al cliente', [
+                'task_id' => $task->id,
+                'action' => $action
+            ]);
+
             if (!$task->order) {
                 \Log::warning('La tarea no tiene orden asociada', ['task_id' => $task->id]);
                 return;
             }
 
-            // Verificar si la orden tiene customer
-            if (!$task->order->customer_id) {
-                \Log::warning('La orden no tiene customer asociado', ['order_id' => $task->order->id]);
+            $customer = $task->order->customer;
+
+            if (!$customer) {
+                \Log::warning('Orden sin cliente asociado', ['order_id' => $task->order->id]);
                 return;
             }
 
-            $order = $task->order;
-            $customer = $order->customer;
+            $message = $this->getNotificationMessage($action, $task);
+            $actionUrl = route('tasks.show', $task->id);
 
-            \Log::info('Customer encontrado', [
-                'customer_id' => $customer->id,
-                'customer_email' => $customer->email
+            // Crear registro de email
+            $emailLog = EmailLog::create([
+                'recipient' => $customer->email,
+                'subject' => "Actualización en tarea #{$task->id}",
+                'message' => $message,
+                'status' => 'pending'
             ]);
 
-            $data = [
-                'subject' => "Actualización en tarea de la orden: {$order->id}",
-                'action_url' => route('tasks.show', $task->id),
-                'action_text' => 'Ver Tarea',
-                'task_id' => $task->id,
-                'order_id' => $order->id,
-                'type' => 'task_update'
-            ];
+            Mail::to($customer->email)
+                ->send(new TaskUpdate($task, $message, $actionUrl, $changes));
 
-            // Agregar logs
-            \Log::info('Intentando enviar notificación', [
-                'customer_email' => $customer->email,
-                'task_id' => $task->id,
-                'action' => $action
+            // Actualizar registro de email
+            $emailLog->update([
+                'status' => 'sent',
+                'sent_at' => now()
             ]);
-
-            // Enviar la notificación al customer
-            $customer->notify(new TaskNotification($data, $task));
 
             \Log::info('Notificación enviada exitosamente');
-
         } catch (\Exception $e) {
-            \Log::error('Error en notifyClient', [
+            if (isset($emailLog)) {
+                $emailLog->update(['status' => 'error']);
+            }
+            \Log::error('Error al enviar notificación', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            throw $e;
+        }
+    }
+
+    protected function getNotificationMessage($action, $task)
+    {
+        switch ($action) {
+            case 'created':
+                return "Se ha creado una nueva tarea para su orden #{$task->order->order_number}.";
+            case 'updated':
+                return "Se ha actualizado la tarea #{$task->id} de su orden #{$task->order->order_number}.";
+            case 'completed':
+                return "La tarea #{$task->id} de su orden #{$task->order->order_number} ha sido completada.";
+            case 'status_changed':
+                return "El estado de la tarea #{$task->id} ha cambiado a {$task->status}.";
+            default:
+                return "Ha habido una actualización en la tarea #{$task->id}.";
         }
     }
 }

@@ -58,16 +58,15 @@ class Task extends Model
         return $this->hasMany(TaskComment::class);
     }
 
-    public function dependencies(): BelongsToMany
+    public function dependencies()
     {
         return $this->belongsToMany(Task::class, 'task_dependencies', 'task_id', 'dependency_id')
             ->withTimestamps();
     }
 
-    public function dependentTasks(): BelongsToMany
+    public function dependentTasks()
     {
-        return $this->belongsToMany(Task::class, 'task_dependencies', 'dependency_id', 'task_id')
-            ->withTimestamps();
+        return $this->belongsToMany(Task::class, 'task_dependencies', 'dependency_id', 'task_id');
     }
 
     public function assignUsers(array $userIds, string $role = 'assignee'): void
@@ -124,5 +123,14 @@ class Task extends Model
     public function isOverdue(): bool
     {
         return $this->due_date && $this->due_date->isPast() && $this->status !== 'completed';
+    }
+
+    // Add this method to safely get dependency IDs
+    public function getDependencyIds(): array
+    {
+        return $this->dependencies()
+            ->select('tasks.id')  // Explicitly specify the table name
+            ->pluck('tasks.id')   // Use the table name in pluck
+            ->toArray();
     }
 }
