@@ -60,8 +60,8 @@ class ReportController extends Controller
 
         return [
             'total_orders' => $query->count(),
-            'total_revenue' => $query->sum('total'),
-            'average_order_value' => $query->avg('total'),
+            'total_revenue' => $query->sum('total_amount'),
+            'average_order_value' => $query->avg('total_amount'),
             'orders_by_status' => $this->getOrdersByStatus(),
             'recent_orders' => $query->latest()->take(5)->get(),
         ];
