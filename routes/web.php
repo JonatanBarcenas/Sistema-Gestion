@@ -78,7 +78,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/show', [ReportController::class, 'show'])->name('reports.show');
     Route::post('/reports/export', [ReportController::class, 'export'])->name('reports.export');
-
     // Rutas de proyectos
     Route::post('projects/{project}/comments', [ProjectController::class, 'addComment'])->name('projects.comments.store');
     Route::post('projects/{project}/tasks/order', [ProjectController::class, 'updateTaskOrder'])->name('projects.tasks.order');

@@ -10,9 +10,9 @@ use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Exports\ReportExcelExport;
-use App\Services\ReportPdfExport;
+use App\Exports\ReportExport;
 use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportController extends Controller
 {
@@ -179,36 +179,73 @@ class ReportController extends Controller
 
     public function export(Request $request)
     {
-        $type = $request->input('type', 'general');
-        $format = $request->input('format', 'pdf');
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
+        try {
+            $type = $request->input('type');
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+            $format = $request->input('format');
 
-        // Get the report data
+            // Get report data
+            $data = $this->getReportData($type, $startDate, $endDate);
+            $filename = "reporte_{$type}_" . now()->format('Y-m-d_His');
+
+            if ($format === 'pdf') {
+                // Validate view exists
+                $view = "reports.pdf.{$type}";
+                if (!view()->exists($view)) {
+                    return back()->with('error', 'Plantilla de reporte no encontrada');
+                }
+
+                try {
+                    // Configure PDF with proper settings
+                    $pdf = PDF::loadView($view, [
+                        'data' => $data,
+                        'startDate' => $startDate ? date('d/m/Y', strtotime($startDate)) : null,
+                        'endDate' => $endDate ? date('d/m/Y', strtotime($endDate)) : null,
+                        'title' => ucfirst($type)
+                    ]);
+
+                    $pdf->setPaper('a4', 'landscape');
+                    $pdf->getDomPDF()->set_option('isHtml5ParserEnabled', true);
+                    $pdf->getDomPDF()->set_option('isRemoteEnabled', true);
+                    
+                    // Return the PDF as a download
+                    return $pdf->download($filename . '.pdf');
+                } catch (\Exception $e) {
+                    \Log::error('Error en generación de PDF', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    return back()->with('error', 'Error al generar el PDF: ' . $e->getMessage());
+                }
+            } elseif ($format === 'excel') {
+                return Excel::download(new ReportExport($data, $type), $filename . '.xlsx');
+            }
+
+            return back()->with('error', 'Formato no soportado');
+        } catch (\Exception $e) {
+            \Log::error('Error en exportación', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Error al generar el reporte: ' . $e->getMessage());
+        }
+    }
+
+    private function getReportData($type, $startDate, $endDate)
+    {
         switch ($type) {
+            case 'general':
+                return $this->getGeneralReport($startDate, $endDate);
             case 'orders':
-                $data = $this->getOrdersReport($startDate, $endDate);
-                break;
-            case 'projects':
-                $data = $this->getProjectsReport($startDate, $endDate);
-                break;
+                return $this->getOrdersReport($startDate, $endDate);
             case 'tasks':
-                $data = $this->getTasksReport($startDate, $endDate);
-                break;
+                return $this->getTasksReport($startDate, $endDate);
             case 'users':
-                $data = $this->getUsersReport($startDate, $endDate);
-                break;
+                return $this->getUsersReport($startDate, $endDate);
             default:
-                $data = $this->getGeneralReport($startDate, $endDate);
+                return [];
         }
-
-        if ($format === 'excel') {
-            return Excel::download(new ReportExcelExport($data, $type), 'reporte_' . $type . '_' . now()->format('Y-m-d') . '.xlsx');
-        }
-
-        // Default to PDF
-        $pdf = new ReportPdfExport($data, $type);
-        return $pdf->generate();
     }
 
     public function sales(Request $request)
@@ -285,29 +322,28 @@ class ReportController extends Controller
             }
         }
 
-        $query->leftJoin('order_items', 'products.id', '=', 'order_items.product_id')
-            ->leftJoin('orders', function($join) {
-                $join->on('order_items.order_id', '=', 'orders.id')
-                    ->where('orders.status', '=', 'completed');
-            })
-            ->select('products.*', DB::raw('COALESCE(SUM(order_items.quantity), 0) as total_sales'))
-            ->groupBy('products.id');
-
+        // Get total products stats
         $totalProducts = Product::where('is_active', true)->count();
         $totalInventoryValue = Product::where('is_active', true)->sum(DB::raw('stock * base_price'));
         $lowStockProducts = Product::where('is_active', true)->where('stock', '<=', 10)->count();
         $outOfStockProducts = Product::where('is_active', true)->where('stock', 0)->count();
 
+        // Get products by category
         $productsByCategory = Product::where('is_active', true)
             ->select('category', DB::raw('COUNT(*) as count'))
             ->groupBy('category')
             ->get();
 
+        // Get top selling products
         $topSellingProducts = Order::where('orders.status', 'completed')
             ->join('order_items', 'orders.id', '=', 'order_items.order_id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->where('products.is_active', true)
-            ->select('products.name', DB::raw('SUM(order_items.quantity) as total_sold'))
+            ->select(
+                'products.id',
+                'products.name',
+                DB::raw('SUM(order_items.quantity) as total_sold')
+            )
             ->groupBy('products.id', 'products.name')
             ->orderByDesc('total_sold')
             ->take(5)
@@ -331,13 +367,13 @@ class ReportController extends Controller
     public function customers(Request $request)
     {
         $status = $request->input('status');
-
         $query = Customer::query();
 
         if ($status && $status !== 'all') {
             $query->where('status', $status);
         }
 
+        // Get customer statistics
         $totalCustomers = Customer::count();
         $activeCustomers = Customer::where('status', 'active')->count();
         $inactiveCustomers = Customer::where('status', 'inactive')->count();
@@ -345,10 +381,12 @@ class ReportController extends Controller
         $totalOrders = Order::count();
         $averageTicket = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
 
+        // Get customer distribution by status
         $customerDistribution = Customer::select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
             ->get();
 
+        // Get top customers
         $topCustomers = Order::where('orders.status', 'completed')
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->select('customers.name', DB::raw('SUM(orders.total_amount) as total_spent'))
@@ -377,22 +415,19 @@ class ReportController extends Controller
     {
         $status = $request->input('status');
         $priority = $request->input('priority');
-
         $query = Task::query();
-
-        if ($status && $status !== 'all') {
-            $query->where('status', $status);
-        }
 
         if ($priority && $priority !== 'all') {
             $query->where('priority', $priority);
+        }
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
         }
 
         $totalTasks = Task::count();
         $pendingTasks = Task::where('status', 'pending')->count();
         $inProgressTasks = Task::where('status', 'in_progress')->count();
         $completedTasks = Task::where('status', 'completed')->count();
-
         $highPriorityTasks = Task::where('priority', 'high')->count();
         $mediumPriorityTasks = Task::where('priority', 'medium')->count();
         $lowPriorityTasks = Task::where('priority', 'low')->count();
