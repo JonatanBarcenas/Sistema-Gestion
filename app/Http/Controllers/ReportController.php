@@ -142,23 +142,31 @@ class ReportController extends Controller
 
     private function getUsersReport($startDate, $endDate)
     {
-        $query = User::with(['tasks', 'projects']);
-
-        if ($startDate) {
-            $query->whereHas('tasks', function ($q) use ($startDate) {
-                $q->whereDate('created_at', '>=', $startDate);
-            });
-        }
-        if ($endDate) {
-            $query->whereHas('tasks', function ($q) use ($endDate) {
-                $q->whereDate('created_at', '<=', $endDate);
-            });
-        }
+        $query = User::with(['tasks' => function($query) use ($startDate, $endDate) {
+            if ($startDate) {
+                $query->whereDate('tasks.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('tasks.created_at', '<=', $endDate);
+            }
+        }]);
 
         return [
             'users' => $query->get(),
-            'user_performance' => User::select('users.id', 'users.name', DB::raw('count(tasks.id) as task_count'))
-                ->leftJoin('tasks', 'users.id', '=', 'tasks.assigned_to')
+            'user_performance' => DB::table('users')
+                ->select(
+                    'users.id',
+                    'users.name',
+                    DB::raw('COUNT(DISTINCT task_users.task_id) as task_count')
+                )
+                ->leftJoin('task_users', 'users.id', '=', 'task_users.user_id')
+                ->leftJoin('tasks', 'task_users.task_id', '=', 'tasks.id')
+                ->when($startDate, function($query) use ($startDate) {
+                    return $query->whereDate('tasks.created_at', '>=', $startDate);
+                })
+                ->when($endDate, function($query) use ($endDate) {
+                    return $query->whereDate('tasks.created_at', '<=', $endDate);
+                })
                 ->groupBy('users.id', 'users.name')
                 ->get(),
             'project_teams' => DB::table('project_team')
