@@ -118,7 +118,7 @@ class ReportController extends Controller
 
     private function getTasksReport($startDate, $endDate)
     {
-        $query = Task::with(['assignedUser', 'project']);
+        $query = Task::with(['assignees', 'order.customer']);
 
         if ($startDate) {
             $query->whereDate('created_at', '>=', $startDate);
@@ -129,12 +129,14 @@ class ReportController extends Controller
 
         return [
             'tasks' => $query->get(),
-            'tasks_by_status' => $query->select('status', DB::raw('count(*) as count'))
+            'tasks_by_status' => Task::select('status', DB::raw('count(*) as count'))
                 ->groupBy('status')
                 ->get(),
-            'user_performance' => $query->select('assigned_to', DB::raw('count(*) as task_count'))
-                ->groupBy('assigned_to')
-                ->get(),
+            'user_performance' => DB::table('users')
+                ->leftJoin('task_users', 'users.id', '=', 'task_users.user_id')
+                ->select('users.id', 'users.name', DB::raw('COUNT(task_users.task_id) as task_count'))
+                ->groupBy('users.id', 'users.name')
+                ->get()
         ];
     }
 

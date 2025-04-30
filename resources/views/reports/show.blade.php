@@ -284,7 +284,7 @@
                                                     Tarea
                                                 </th>
                                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Proyecto
+                                                    Orden
                                                 </th>
                                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Asignado
@@ -304,10 +304,18 @@
                                                         {{ $task->title }}
                                                     </td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {{ $task->project->name }}
+                                                        {{ $task->order ? "#{$task->order->order_number}" : 'Sin orden' }}
                                                     </td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {{ $task->assignedUser->name }}
+                                                        @if($task->assignees->count() > 0)
+                                                            @foreach($task->assignees as $assignee)
+                                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                                    {{ $assignee->name }}
+                                                                </span>
+                                                            @endforeach
+                                                        @else
+                                                            <span class="text-gray-500">Sin asignar</span>
+                                                        @endif
                                                     </td>
                                                     <td class="px-6 py-4 whitespace-nowrap">
                                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -382,4 +390,4 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection

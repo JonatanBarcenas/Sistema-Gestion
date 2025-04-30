@@ -47,7 +47,7 @@ class Task extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function assignees(): BelongsToMany
+    public function assignees()
     {
         return $this->belongsToMany(User::class, 'task_users')
             ->withTimestamps();

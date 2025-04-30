@@ -61,7 +61,7 @@
                     </a>
 
                     <!-- Reporte de Proyectos -->
-                    <a href="{{ route('reports.show', ['type' => 'projects']) }}" class="block">
+                    <!-- <a href="{{ route('reports.show', ['type' => 'projects']) }}" class="block">
                         <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow duration-200">
                             <div class="p-5">
                                 <div class="flex items-center">
@@ -83,7 +83,7 @@
                                 </div>
                             </div>
                         </div>
-                    </a>
+                    </a> -->
 
                     <!-- Reporte de Tareas -->
                     <a href="{{ route('reports.show', ['type' => 'tasks']) }}" class="block">
