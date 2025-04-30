@@ -69,7 +69,7 @@ class ReportController extends Controller
 
     private function getOrdersReport($startDate, $endDate)
     {
-        $query = Order::with(['customer', 'items']);
+        $query = Order::with(['customer', 'products']);
 
         if ($startDate) {
             $query->whereDate('created_at', '>=', $startDate);
@@ -80,9 +80,11 @@ class ReportController extends Controller
 
         return [
             'orders' => $query->get(),
-            'total_revenue' => $query->sum('total'),
+            'total_revenue' => $query->sum('total_amount'),
             'orders_by_status' => $this->getOrdersByStatus(),
-            'top_customers' => $query->select('customer_id', DB::raw('count(*) as order_count'), DB::raw('sum(total) as total_spent'))
+            'top_customers' => $query->select('customer_id', 
+                DB::raw('count(*) as order_count'), 
+                DB::raw('sum(total_amount) as total_spent'))
                 ->groupBy('customer_id')
                 ->orderByDesc('total_spent')
                 ->take(5)
