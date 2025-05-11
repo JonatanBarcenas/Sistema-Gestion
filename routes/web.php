@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
@@ -30,7 +29,7 @@ Route::post('register', [RegisterController::class, 'register']);
 Route::middleware(['auth'])->group(function () {
     // Ruta de logout
     Route::post('logout', [LoginController::class, 'logout'])->name('logout');
-    
+
     // Rutas de recuperación de contraseña
     Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
     Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
@@ -63,11 +62,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
     Route::post('/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
-    
+
     // Rutas de preferencias de notificación
     Route::get('/customers/{customer}/notification-preferences', [NotificationPreferenceController::class, 'edit'])->name('notification.preferences.edit');
     Route::put('/customers/{customer}/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification.preferences.update');
-    
+
     // Rutas de registro de correos
     Route::get('/emails', [EmailLogController::class, 'index'])->name('emails.index');
     Route::get('/emails/guide/notifications', [EmailLogController::class, 'showNotificationGuide'])->name('emails.notification.guide');
@@ -98,8 +97,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('kanban/tasks/{task}/comments', [KanbanController::class, 'addComment'])->name('kanban.tasks.comments.store');
     Route::delete('kanban/tasks/{task}/comments/{comment}', [KanbanController::class, 'deleteComment'])->name('kanban.tasks.comments.destroy');
 
-    // Extensión de sesión
-    Route::post('session/extend', function() {
+    Route::post('session/extend', function () {
         session()->put('last_activity', time());
         return response()->json(['success' => true]);
     })->name('session.extend');
@@ -108,10 +106,11 @@ Route::middleware(['auth'])->group(function () {
 Route::get('/test-mail', function () {
     Mail::raw('Este es un correo de prueba.', function ($message) {
         $message->to('alfonsoacosta207@gmail.com')
-                ->subject('Correo de prueba');
+            ->subject('Correo de prueba');
     });
     return 'Correo enviado.';
-});Route::post('/debug-task-update/{task}', function(Request $request, Task $task) {
+});
+Route::post('/debug-task-update/{task}', function (Request $request, Task $task) {
     \Log::info('Debug task update request', [
         'request_data' => $request->all(),
         'task_id' => $task->id

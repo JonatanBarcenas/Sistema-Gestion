@@ -4,12 +4,12 @@
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md">
         <div class="p-6 border-b border-gray-200">
-            <div class="flex justify-between items-center mb-6">
+            <!-- <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-800">Registro de Correos Enviados</h2>
                 <a href="{{ route('emails.notification.guide') }}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition duration-200">
                     Guía de Notificaciones
                 </a>
-            </div>
+            </div> -->
 
             @if(session('success'))
                 <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
