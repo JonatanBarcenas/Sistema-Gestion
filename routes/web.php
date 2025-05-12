@@ -18,6 +18,8 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use Illuminate\Support\Facades\Mail;
+use Inertia\Inertia;
+use App\Http\Controllers\PrediccionController;
 
 // Rutas públicas (login y register)
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -101,6 +103,9 @@ Route::middleware(['auth'])->group(function () {
         session()->put('last_activity', time());
         return response()->json(['success' => true]);
     })->name('session.extend');
+
+    // Rutas de predicción
+    Route::get('/prediccion-entregas', [App\Http\Controllers\PrediccionController::class, 'index'])->name('prediccion.index');
 });
 
 Route::get('/test-mail', function () {
