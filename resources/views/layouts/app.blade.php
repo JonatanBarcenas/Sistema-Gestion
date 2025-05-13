@@ -34,11 +34,11 @@
         axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    @stack('scripts')
 </head>
 
 <body>
-    <div class="min-h-screen bg-gray-100">
+<div class="min-h-screen bg-gray-100">
         <!-- Sidebar -->
         <aside class="fixed inset-y-0 left-0 bg-white shadow-lg max-h-screen w-64">
             <div class="flex flex-col justify-between h-full">
@@ -170,6 +170,45 @@
         <!-- Notificación de correo enviado -->
         @include('components.email-notification')
     </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Configuración global de SweetAlert2
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+
+        // Función para mostrar notificaciones
+        function showNotification(type, message) {
+            Toast.fire({
+                icon: type,
+                title: message
+            });
+        }
+
+        // Manejar mensajes flash
+        @if(session('success'))
+            showNotification('success', '{{ session('success') }}');
+        @endif
+
+        @if(session('error'))
+            showNotification('error', '{{ session('error') }}');
+        @endif
+
+        @if(session('warning'))
+            showNotification('warning', '{{ session('warning') }}');
+        @endif
+
+        @if(session('info'))
+            showNotification('info', '{{ session('info') }}');
+        @endif
+    </script>
 </body>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
 </html>

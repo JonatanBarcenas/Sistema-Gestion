@@ -20,6 +20,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use App\Http\Controllers\PrediccionController;
+use App\Http\Controllers\TaskFileController;
 
 // Rutas públicas (login y register)
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -106,6 +107,17 @@ Route::middleware(['auth'])->group(function () {
 
     // Rutas de predicción
     Route::get('/prediccion-entregas', [App\Http\Controllers\PrediccionController::class, 'index'])->name('prediccion.index');
+
+    // Rutas para archivos de tareas
+    Route::get('/tasks/{task}/files', [TaskFileController::class, 'index'])->name('tasks.files.index');
+    Route::post('/tasks/{task}/files', [TaskFileController::class, 'store'])->name('tasks.files.store');
+    Route::delete('/tasks/{task}/files/{fileIndex}', [TaskFileController::class, 'destroy'])->name('tasks.files.destroy');
+
+    // Rutas para comentarios de tareas
+    Route::get('/tasks/{task}/comments', [TaskCommentController::class, 'index'])->name('tasks.comments.index');
+    Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])->name('tasks.comments.store');
+    Route::put('/tasks/{task}/comments/{comment}', [TaskCommentController::class, 'update'])->name('tasks.comments.update');
+    Route::delete('/tasks/{task}/comments/{comment}', [TaskCommentController::class, 'destroy'])->name('tasks.comments.destroy');
 });
 
 Route::get('/test-mail', function () {

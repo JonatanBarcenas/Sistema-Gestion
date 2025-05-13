@@ -19,6 +19,10 @@ class TaskCommentController extends Controller
             ->latest()
             ->paginate(10);
 
+        if (request()->wantsJson()) {
+            return response()->json($comments);
+        }
+
         return view('tasks.comments.index', compact('task', 'comments'));
     }
 
@@ -91,9 +95,10 @@ class TaskCommentController extends Controller
      */
     public function update(Request $request, Task $task, TaskComment $comment)
     {
+        $this->authorize('update', $comment);
+
         $validated = $request->validate([
-            'content' => 'required|string',
-            'attachments' => 'nullable|array'
+            'content' => 'required|string'
         ]);
 
         try {
@@ -126,6 +131,8 @@ class TaskCommentController extends Controller
      */
     public function destroy(Task $task, TaskComment $comment)
     {
+        $this->authorize('delete', $comment);
+
         try {
             DB::beginTransaction();
 
@@ -134,7 +141,9 @@ class TaskCommentController extends Controller
             DB::commit();
 
             if (request()->wantsJson()) {
-                return response()->json(['message' => 'Comentario eliminado exitosamente']);
+                return response()->json([
+                    'message' => 'Comentario eliminado exitosamente'
+                ]);
             }
 
             return redirect()->route('tasks.show', $task)
