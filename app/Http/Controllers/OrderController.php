@@ -54,7 +54,77 @@ class OrderController extends Controller
     public function create()
     {
         $customers = Customer::where('status', 'active')->get();
-        return view('orders.form', compact('customers'));
+        $products = Product::where('is_active', true)->get();
+        
+        // Obtener órdenes históricas para la predicción
+        $ordenesHistoricas = Order::with('tasks')
+            ->where('status', 'completed')
+            ->orderBy('order_date', 'desc')
+            ->limit(50)
+            ->get();
+
+        // Calcular predicción inicial
+        $prediccion = $this->calcularPrediccionInicial($ordenesHistoricas);
+        
+        return view('orders.form', compact('customers', 'products', 'prediccion'));
+    }
+
+    /**
+     * Calcular predicción inicial basada en datos históricos
+     */
+    private function calcularPrediccionInicial($ordenesHistoricas)
+    {
+        if ($ordenesHistoricas->isEmpty()) {
+            return [
+                'dias_estimados' => 0,
+                'confianza' => 0,
+                'mensaje' => 'No hay datos históricos suficientes para hacer una predicción',
+                'fecha_sugerida' => null
+            ];
+        }
+
+        // Calcular tiempo promedio por tarea
+        $tiempoPromedioPorTarea = $ordenesHistoricas->avg(function ($orden) {
+            return $orden->tasks->count() > 0 
+                ? $orden->duracion_real / $orden->tasks->count() 
+                : 0;
+        });
+
+        // Calcular factor de complejidad promedio
+        $factorComplejidadPromedio = $ordenesHistoricas->avg(function ($orden) {
+            return $orden->tasks->count() * 0.1 + 
+                   $orden->tasks->where('status', 'pending')->count() * 0.2 +
+                   $orden->tasks->where('status', 'in_progress')->count() * 0.15;
+        });
+
+        // Estimar días para una orden promedio (mínimo 1 día)
+        $diasEstimados = max(1, ceil($tiempoPromedioPorTarea * $factorComplejidadPromedio));
+
+        // Calcular nivel de confianza basado en la cantidad de datos
+        $confianza = min(95, 70 + ($ordenesHistoricas->count() * 0.5));
+
+        // Calcular fecha sugerida (hoy + días estimados)
+        $fechaSugerida = now()->addDays($diasEstimados)->format('Y-m-d');
+
+        // Calcular días hábiles (excluyendo fines de semana)
+        $diasHabiles = 0;
+        $fechaActual = now();
+        while ($diasHabiles < $diasEstimados) {
+            $fechaActual = $fechaActual->addDay();
+            if (!$fechaActual->isWeekend()) {
+                $diasHabiles++;
+            }
+        }
+        $fechaSugeridaHabiles = $fechaActual->format('Y-m-d');
+
+        return [
+            'dias_estimados' => $diasEstimados,
+            'confianza' => round($confianza, 2),
+            'mensaje' => "Basado en {$ordenesHistoricas->count()} órdenes históricas",
+            'fecha_sugerida' => $fechaSugerida,
+            'fecha_sugerida_habiles' => $fechaSugeridaHabiles,
+            'dias_habiles' => $diasHabiles
+        ];
     }
 
     /**

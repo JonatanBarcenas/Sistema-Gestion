@@ -43,6 +43,218 @@
                 </div>
             </div>
 
+            <!-- Sección de Gráficas -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">Análisis Gráfico</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfica de Precisión por Mes -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Precisión por Mes</h3>
+                        <div class="h-64 relative">
+                            @if(isset($prediccion['graficas']['precision_por_mes']) && count($prediccion['graficas']['precision_por_mes']) > 0)
+                                <div class="flex items-end h-48 space-x-1">
+                                    @foreach($prediccion['graficas']['precision_por_mes'] as $item)
+                                        <div class="flex flex-col items-center">
+                                            <div class="w-12 bg-blue-500 rounded-t-md" style="height: {{ ($item['precision'] / 100) * 100 }}%"></div>
+                                            <span class="text-xs mt-2 transform -rotate-45 origin-top-left text-gray-600 w-16 truncate">{{ $item['mes'] }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <!-- Eje Y -->
+                                <div class="absolute left-0 top-0 h-48 flex flex-col justify-between py-2">
+                                    <span class="text-xs text-gray-500">100%</span>
+                                    <span class="text-xs text-gray-500">75%</span>
+                                    <span class="text-xs text-gray-500">50%</span>
+                                    <span class="text-xs text-gray-500">25%</span>
+                                    <span class="text-xs text-gray-500">0%</span>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center h-full text-gray-400">
+                                    No hay datos suficientes
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Gráfica de Distribución de Tareas -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Distribución de Tareas</h3>
+                        <div class="h-64 flex items-center justify-center">
+                            @if(isset($prediccion['graficas']['distribucion_tareas']))
+                                @php
+                                    $total = $prediccion['graficas']['distribucion_tareas']['completadas'] + 
+                                            $prediccion['graficas']['distribucion_tareas']['pendientes'] + 
+                                            $prediccion['graficas']['distribucion_tareas']['en_progreso'];
+                                    $completadasPct = $total > 0 ? round(($prediccion['graficas']['distribucion_tareas']['completadas'] / $total) * 100) : 0;
+                                    $pendientesPct = $total > 0 ? round(($prediccion['graficas']['distribucion_tareas']['pendientes'] / $total) * 100) : 0;
+                                    $enProgresoPct = $total > 0 ? round(($prediccion['graficas']['distribucion_tareas']['en_progreso'] / $total) * 100) : 0;
+                                @endphp
+                                
+                                <div class="w-full">
+                                    <!-- Gráfico de dona simplificado con Tailwind -->
+                                    <div class="relative pt-1">
+                                        <div class="flex mb-2 items-center justify-between">
+                                            <div>
+                                                <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full bg-green-200 text-green-800">
+                                                    Completadas ({{ $completadasPct }}%)
+                                                </span>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="text-xs font-semibold inline-block text-green-800">
+                                                    {{ $prediccion['graficas']['distribucion_tareas']['completadas'] }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-4">
+                                            <div class="bg-green-500 h-4 rounded-full" style="width: {{ $completadasPct }}%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="relative pt-3">
+                                        <div class="flex mb-2 items-center justify-between">
+                                            <div>
+                                                <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full bg-yellow-200 text-yellow-800">
+                                                    En Progreso ({{ $enProgresoPct }}%)
+                                                </span>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="text-xs font-semibold inline-block text-yellow-800">
+                                                    {{ $prediccion['graficas']['distribucion_tareas']['en_progreso'] }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-4">
+                                            <div class="bg-yellow-500 h-4 rounded-full" style="width: {{ $enProgresoPct }}%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="relative pt-3">
+                                        <div class="flex mb-2 items-center justify-between">
+                                            <div>
+                                                <span class="text-xs font-semibold inline-block py-1 px-2 rounded-full bg-red-200 text-red-800">
+                                                    Pendientes ({{ $pendientesPct }}%)
+                                                </span>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="text-xs font-semibold inline-block text-red-800">
+                                                    {{ $prediccion['graficas']['distribucion_tareas']['pendientes'] }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-4">
+                                            <div class="bg-red-500 h-4 rounded-full" style="width: {{ $pendientesPct }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center h-full text-gray-400">
+                                    No hay datos suficientes
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Gráfica de Complejidad vs Retraso -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Complejidad vs Retraso</h3>
+                        <div class="h-64 relative">
+                            @if(isset($prediccion['graficas']['complejidad_vs_retraso']) && count($prediccion['graficas']['complejidad_vs_retraso']) > 0)
+                                <!-- Gráfico de dispersión simple con Tailwind -->
+                                <div class="relative h-48 border-b border-l border-gray-300">
+                                    @foreach($prediccion['graficas']['complejidad_vs_retraso'] as $item)
+                                        @php
+                                            $maxComplejidad = collect($prediccion['graficas']['complejidad_vs_retraso'])->max('complejidad') ?: 3;
+                                            $maxRetraso = collect($prediccion['graficas']['complejidad_vs_retraso'])->max('retraso') ?: 1;
+                                            
+                                            $posX = ($item['complejidad'] / $maxComplejidad) * 100;
+                                            $posY = 100 - (($item['retraso'] / $maxRetraso) * 100);
+                                            
+                                            // Ajustar para evitar posiciones fuera del gráfico
+                                            $posX = min(max($posX, 5), 95);
+                                            $posY = min(max($posY, 5), 95);
+                                            
+                                            $color = $item['retraso'] > 0 ? 'bg-red-500' : 'bg-green-500';
+                                        @endphp
+                                        <div class="absolute {{ $color }} w-3 h-3 rounded-full transform -translate-x-1/2 -translate-y-1/2" 
+                                             style="left: {{ $posX }}%; top: {{ $posY }}%" 
+                                             title="Orden: {{ $item['order_number'] }} - Complejidad: {{ $item['complejidad'] }} - Retraso: {{ $item['retraso'] }} días"></div>
+                                    @endforeach
+                                    
+                                    <!-- Etiquetas de los ejes -->
+                                    <div class="absolute bottom-0 left-0 w-full flex justify-between px-2 -mb-6">
+                                        <span class="text-xs text-gray-500">0</span>
+                                        <span class="text-xs text-gray-500">Complejidad</span>
+                                        <span class="text-xs text-gray-500">{{ number_format($maxComplejidad, 1) }}</span>
+                                    </div>
+                                    <div class="absolute top-0 left-0 h-full flex flex-col justify-between py-2 -ml-6">
+                                        <span class="text-xs text-gray-500">{{ $maxRetraso }}</span>
+                                        <span class="text-xs text-gray-500">Retraso</span>
+                                        <span class="text-xs text-gray-500">0</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Leyenda -->
+                                <div class="flex items-center justify-center mt-6 space-x-4">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
+                                        <span class="text-xs text-gray-600">Con retraso</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
+                                        <span class="text-xs text-gray-600">A tiempo</span>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center h-full text-gray-400">
+                                    No hay datos suficientes
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Gráfica de Tiempo Estimado vs Real -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-700">Estimado vs Real</h3>
+                        <div class="h-64">
+                            @if(isset($prediccion['graficas']['comparativo_tiempos']) && count($prediccion['graficas']['comparativo_tiempos']) > 0)
+                                <div class="h-64 overflow-x-auto">
+                                    <div class="min-w-max">
+                                        <div class="flex items-end h-48 space-x-4 pl-8">
+                                            @foreach($prediccion['graficas']['comparativo_tiempos'] as $item)
+                                                <div class="flex flex-col items-center space-x-1">
+                                                    <div class="flex items-end space-x-1">
+                                                        <div class="w-8 bg-blue-400 rounded-t-md" style="height: {{ min(100, $item['estimado'] * 3) }}px"></div>
+                                                        <div class="w-8 bg-purple-500 rounded-t-md" style="height: {{ min(100, $item['real'] * 3) }}px"></div>
+                                                    </div>
+                                                    <span class="text-xs mt-2 text-gray-600 transform -rotate-45 origin-top-left w-12 truncate">{{ substr($item['order_number'], -4) }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Leyenda -->
+                                <div class="flex items-center justify-center mt-2 space-x-4">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-blue-400 mr-1"></div>
+                                        <span class="text-xs text-gray-600">Estimado</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-purple-500 mr-1"></div>
+                                        <span class="text-xs text-gray-600">Real</span>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center h-full text-gray-400">
+                                    No hay datos suficientes
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Visualización de Predicción -->
             <div class="mb-8">
                 <h2 class="text-xl font-semibold mb-4">Visualización de Predicción</h2>

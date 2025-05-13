@@ -83,6 +83,31 @@
                 </div>
             </div>
 
+            <!-- Predicción de Tiempo -->
+            <div class="mt-8 bg-blue-50 p-4 rounded-lg">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Predicción de Tiempo Estimado</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-gray-600">Días Estimados</p>
+                        <p class="text-2xl font-semibold text-blue-600">{{ $prediccion['dias_estimados'] }}</p>
+                        <p class="text-sm text-gray-500">({{ $prediccion['dias_habiles'] }} días hábiles)</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-gray-600">Fecha Sugerida</p>
+                        <p class="text-2xl font-semibold text-blue-600">{{ $prediccion['fecha_sugerida_habiles'] }}</p>
+                        <p class="text-sm text-gray-500">(Considerando días hábiles)</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-gray-600">Nivel de Confianza</p>
+                        <p class="text-2xl font-semibold text-blue-600">{{ $prediccion['confianza'] }}%</p>
+                        <p class="text-sm text-gray-500">{{ $prediccion['mensaje'] }}</p>
+                    </div>
+                </div>
+                <p class="mt-2 text-sm text-gray-600">
+                    Esta predicción se basa en el análisis de órdenes históricas y puede variar según la complejidad específica de su pedido.
+                </p>
+            </div>
+
             <!-- Productos -->
             <div class="mt-8">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Productos</h3>
